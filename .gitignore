@@ -1,0 +1,59 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# local env files
+.env*.local
+.env
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+
+# Large files and executables
+*.exe
+/public/uploads/ 
+
+# Arquivos sensíveis - NUNCA commitar
+CONECTAR_VPS.md
+COMECE_AQUI_VPS.md
+scripts/conectar-vps.ps1
+scripts/conectar-vps.sh
+*_CREDENTIALS.md
+*.key
+*.pem
+id_rsa
+id_rsa.pub
+*_SECRET*.md
+*_PASSWORD*.md
+
+# Logs do PM2 (se existirem)
+logs/
+*.log
