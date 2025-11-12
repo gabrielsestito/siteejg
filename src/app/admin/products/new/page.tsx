@@ -17,9 +17,6 @@ export default function NewProductPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
   const [product, setProduct] = useState({
     name: "",
     description: "",
@@ -36,17 +33,19 @@ export default function NewProductPage() {
   }, [status, router]);
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    if (status === "authenticated") {
+      fetchCategories();
+    }
+  }, [status]);
 
   const fetchCategories = async () => {
     try {
       const response = await fetch("/api/admin/categories");
       if (!response.ok) throw new Error("Erro ao carregar categorias");
       const data = await response.json();
-      setCategories(data.categories);
+      setCategories(data.categories || []);
     } catch (error: any) {
-      toast.error(error.message);
+      toast.error(error.message || "Erro ao carregar categorias");
     } finally {
       setIsLoading(false);
     }
@@ -62,60 +61,57 @@ export default function NewProductPage() {
       return;
     }
 
-    // Validar tamanho (máximo 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validar tamanho (máximo 2MB)
+    const maxSize = 2 * 1024 * 1024; // 2MB
     if (file.size > maxSize) {
-      toast.error("A imagem deve ter no máximo 5MB");
+      toast.error("A imagem deve ter no máximo 2MB");
       return;
     }
 
-    setSelectedFile(file);
-
-    // Criar preview da imagem
+    // Converter imagem para base64
     const reader = new FileReader();
     reader.onloadend = () => {
-      setImagePreview(reader.result as string);
+      const base64String = reader.result as string;
+      setProduct({ ...product, image: base64String });
+      toast.success("Imagem carregada com sucesso!");
+    };
+    reader.onerror = () => {
+      toast.error("Erro ao processar a imagem");
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleImageUpload = async () => {
-    if (!selectedFile) {
-      toast.error("Por favor, selecione uma imagem");
-      return;
-    }
-
-    setIsUploading(true);
-    try {
-      const formData = new FormData();
-      formData.append("file", selectedFile);
-
-      const response = await fetch("/api/admin/products/upload", {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Erro ao fazer upload da imagem");
-      }
-
-      const data = await response.json();
-      setProduct({ ...product, image: data.url });
-      toast.success("Imagem carregada com sucesso!");
-    } catch (error: any) {
-      console.error("Erro ao fazer upload:", error);
-      toast.error(error.message || "Erro ao fazer upload da imagem");
-    } finally {
-      setIsUploading(false);
-    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Validações
+    if (!product.name.trim()) {
+      toast.error("Por favor, informe o nome do produto");
+      return;
+    }
+
+    if (!product.description.trim()) {
+      toast.error("Por favor, informe a descrição do produto");
+      return;
+    }
+
+    if (!product.price || parseFloat(product.price) <= 0) {
+      toast.error("Por favor, informe um preço válido");
+      return;
+    }
+
+    if (!product.stock || parseInt(product.stock) < 0) {
+      toast.error("Por favor, informe um estoque válido");
+      return;
+    }
+
+    if (!product.categoryId) {
+      toast.error("Por favor, selecione uma categoria");
+      return;
+    }
+
     if (!product.image || product.image.trim() === '') {
-      toast.error("Por favor, faça upload de uma imagem");
+      toast.error("Por favor, selecione uma imagem");
       return;
     }
 
@@ -123,11 +119,11 @@ export default function NewProductPage() {
 
     try {
       const productData = {
-        name: product.name,
-        description: product.description,
+        name: product.name.trim(),
+        description: product.description.trim(),
         price: parseFloat(product.price),
         stock: parseInt(product.stock),
-        image: product.image, // URL da imagem após upload
+        image: product.image.trim(),
         categoryId: product.categoryId,
       };
 
@@ -146,9 +142,6 @@ export default function NewProductPage() {
           if (contentType && contentType.includes("application/json")) {
             const errorData = await response.json();
             errorMessage = errorData.message || errorData.error || errorMessage;
-          } else {
-            const text = await response.text();
-            errorMessage = text || errorMessage;
           }
         } catch (parseError) {
           console.error("Erro ao fazer parse da resposta de erro:", parseError);
@@ -156,7 +149,8 @@ export default function NewProductPage() {
         throw new Error(errorMessage);
       }
 
-      toast.success("Produto criado com sucesso");
+      const data = await response.json();
+      toast.success("Produto criado com sucesso!");
       router.push("/admin");
     } catch (error: any) {
       console.error("Erro ao criar produto:", error);
@@ -185,7 +179,7 @@ export default function NewProductPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                    Nome
+                    Nome *
                   </label>
                   <input
                     type="text"
@@ -194,12 +188,13 @@ export default function NewProductPage() {
                     onChange={(e) => setProduct({ ...product, name: e.target.value })}
                     className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     required
+                    placeholder="Nome do produto"
                   />
                 </div>
 
                 <div>
                   <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-1">
-                    Categoria
+                    Categoria *
                   </label>
                   <select
                     id="category"
@@ -220,7 +215,7 @@ export default function NewProductPage() {
 
               <div>
                 <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
-                  Descrição
+                  Descrição *
                 </label>
                 <textarea
                   id="description"
@@ -229,13 +224,14 @@ export default function NewProductPage() {
                   className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   rows={4}
                   required
+                  placeholder="Descrição do produto"
                 />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
-                    Preço
+                    Preço *
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 text-gray-500">R$</span>
@@ -248,13 +244,14 @@ export default function NewProductPage() {
                       min="0"
                       className="w-full pl-8 pr-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       required
+                      placeholder="0.00"
                     />
                   </div>
                 </div>
 
                 <div>
                   <label htmlFor="stock" className="block text-sm font-medium text-gray-700 mb-1">
-                    Estoque
+                    Estoque *
                   </label>
                   <input
                     type="number"
@@ -264,82 +261,53 @@ export default function NewProductPage() {
                     min="0"
                     className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                     required
+                    placeholder="0"
                   />
                 </div>
               </div>
 
               <div>
                 <label htmlFor="image" className="block text-sm font-medium text-gray-700 mb-1">
-                  Imagem do Produto
+                  Imagem do Produto *
                 </label>
                 <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <input
-                      type="file"
-                      id="image"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
-                      disabled={isUploading}
-                    />
-                    {selectedFile && (
-                      <button
-                        type="button"
-                        onClick={handleImageUpload}
-                        disabled={isUploading || !!product.image}
-                        className="px-4 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors flex items-center gap-2"
-                      >
-                        {isUploading ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                            Enviando...
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                            </svg>
-                            Fazer Upload
-                          </>
-                        )}
-                      </button>
-                    )}
-                  </div>
+                  <input
+                    type="file"
+                    id="image"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100"
+                    required
+                  />
                   {product.image && (
-                    <p className="text-sm text-green-600 font-medium">
-                      ✓ Imagem carregada com sucesso!
-                    </p>
+                    <div className="mt-2">
+                      <p className="text-sm text-green-600 font-medium mb-2">
+                        ✓ Imagem carregada com sucesso!
+                      </p>
+                      <div className="w-full max-w-md bg-gray-100 rounded-xl overflow-hidden border-2 border-green-200">
+                        <img
+                          src={product.image}
+                          alt="Preview"
+                          className="w-full h-auto object-contain max-h-64"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
-
-              {(imagePreview || product.image) && (
-                <div className="mt-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Preview da Imagem
-                  </label>
-                  <div className="aspect-w-16 aspect-h-9 bg-gray-100 rounded-xl overflow-hidden">
-                    <img
-                      src={product.image || imagePreview}
-                      alt="Preview"
-                      className="object-cover w-full h-full"
-                    />
-                  </div>
-                </div>
-              )}
 
               <div className="flex justify-end gap-4 pt-6">
                 <button
                   type="button"
                   onClick={() => router.push("/admin")}
-                  className="px-6 py-2 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500 transition-colors"
+                  className="px-6 py-2 border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors"
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="px-6 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors flex items-center gap-2"
+                  className="px-6 py-2 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors flex items-center gap-2"
                 >
                   {isSubmitting ? (
                     <>
@@ -362,4 +330,4 @@ export default function NewProductPage() {
       </main>
     </div>
   );
-} 
+}

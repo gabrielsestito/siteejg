@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Navigation } from "@/components/Navigation";
+import { ProductImageWithFallback } from "@/components/ProductImageWithFallback";
 import { getPermissions } from "@/lib/permissions";
 
 interface OrderItem {
@@ -859,18 +860,11 @@ export default function OrderDetailsPage({ params }: { params: { id: string } })
                   className="flex items-center justify-between bg-gray-50 rounded-xl p-4"
                 >
                   <div className="flex items-center">
-                    <img
+                    <ProductImageWithFallback
                       src={item.product.image}
                       alt={item.product.name}
                       className="w-16 h-16 object-cover rounded-lg"
                       loading="lazy"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        // Se a imagem falhar, tenta usar a imagem padrão
-                        if (!target.src.includes('/image.jpg')) {
-                          target.src = '/image.jpg';
-                        }
-                      }}
                     />
                     <div className="ml-4">
                       <h3 className="font-medium text-gray-800">

@@ -51,13 +51,15 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validar se a imagem foi fornecida
+    // Validar se a imagem foi fornecida (base64 ou URL)
     if (!image || typeof image !== 'string' || !image.trim()) {
       return NextResponse.json(
-        { error: "Imagem obrigatória", message: "Por favor, faça upload de uma imagem" },
+        { error: "Imagem obrigatória", message: "Por favor, selecione uma imagem" },
         { status: 400 }
       );
     }
+
+    const imageData = image.trim();
 
     const product = await prisma.product.create({
       data: {
@@ -65,7 +67,7 @@ export async function POST(request: Request) {
         description: description.trim(),
         price: parseFloat(price),
         stock: parseInt(stock),
-        image: image.trim(), // Caminho da imagem após upload (ex: /products/uuid.jpg)
+        image: imageData,
         categoryId,
       },
       include: {

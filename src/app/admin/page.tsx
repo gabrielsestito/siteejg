@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { Navigation } from "@/components/Navigation";
+import { ProductImageWithFallback } from "@/components/ProductImageWithFallback";
 import { getPermissions, canAccessAdmin } from "@/lib/permissions";
 
 interface Order {
@@ -1487,19 +1488,11 @@ export default function AdminPage() {
                   className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className="aspect-w-16 aspect-h-9 bg-gray-100 relative">
-                    <img
+                    <ProductImageWithFallback
                       src={product.image}
                       alt={product.name}
                       className="object-cover w-full h-full"
                       loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        // Se a imagem falhar, tenta usar a imagem padrão
-                        if (!target.src.includes('/image.jpg')) {
-                          target.src = '/image.jpg';
-                        }
-                      }}
                     />
                   </div>
                   <div className="p-4">
@@ -1787,19 +1780,11 @@ export default function AdminPage() {
                                         className="flex items-center justify-between bg-white rounded-lg p-2 border border-gray-200"
                                       >
                                         <div className="flex items-center gap-2 flex-1">
-                                          <img
+                                          <ProductImageWithFallback
                                             src={item.product.image}
                                             alt={item.product.name}
                                             className="w-10 h-10 object-cover rounded"
                                             loading="lazy"
-                                            referrerPolicy="no-referrer-when-downgrade"
-                                            onError={(e) => {
-                                              const target = e.target as HTMLImageElement;
-                                              // Se a imagem falhar, tenta usar a imagem padrão
-                                              if (!target.src.includes('/image.jpg')) {
-                                                target.src = '/image.jpg';
-                                              }
-                                            }}
                                           />
                                           <span className="text-sm font-medium text-gray-900">{item.product.name}</span>
                                         </div>

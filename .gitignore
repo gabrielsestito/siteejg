@@ -2,6 +2,7 @@
 /node_modules
 /.pnp
 .pnp.js
+package-lock.json
 
 # testing
 /coverage
@@ -57,3 +58,9 @@ id_rsa.pub
 # Logs do PM2 (se existirem)
 logs/
 *.log
+
+# Build e produção
+.next/
+out/
+dist/
+build/

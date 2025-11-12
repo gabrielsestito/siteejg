@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
@@ -95,13 +95,37 @@ export async function PATCH(
             email: true,
           },
         },
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                image: true,
+              },
+            },
+          },
+        },
       },
     });
 
-    console.log(`[DELIVERY API] Pedido atualizado com sucesso. Status atual: ${updatedOrder.status}`);
+    // Calcular totais
+    const subtotal = updatedOrder.subtotal ?? updatedOrder.items.reduce((sum, item) => {
+      return sum + item.quantity * item.price;
+    }, 0);
+    const deliveryFee = updatedOrder.deliveryFee ?? 0;
+    const total = updatedOrder.total ?? subtotal + deliveryFee;
+
+    const orderWithTotal = {
+      ...updatedOrder,
+      subtotal,
+      deliveryFee,
+      total,
+      items: updatedOrder.items || [],
+    };
 
     return NextResponse.json({ 
-      order: updatedOrder 
+      order: orderWithTotal 
     }, { 
       status: 200,
       headers: {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = 'force-dynamic';
@@ -80,10 +80,10 @@ export async function GET(request: Request) {
       },
     });
 
-    // Calcular totais
+    // Calcular totais e garantir que items estejam presentes
     const ordersWithTotal = orders.map((order) => {
       const subtotal = order.subtotal ?? order.items.reduce((sum, item) => {
-        return sum + item.quantity * (item as any).price;
+        return sum + item.quantity * item.price;
       }, 0);
       const deliveryFee = order.deliveryFee ?? 0;
       const total = order.total ?? subtotal + deliveryFee;
@@ -93,6 +93,7 @@ export async function GET(request: Request) {
         subtotal,
         deliveryFee,
         total,
+        items: order.items || [], // Garantir que items sempre seja um array
       };
     });
 

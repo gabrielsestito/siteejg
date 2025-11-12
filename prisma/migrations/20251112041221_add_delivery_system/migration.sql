@@ -1,9 +1,0 @@
--- AlterTable
-ALTER TABLE `order` ADD COLUMN `deliveryPersonId` VARCHAR(191) NULL,
-    MODIFY `status` ENUM('PENDING', 'CONFIRMED', 'IN_ROUTE', 'DELIVERED') NOT NULL DEFAULT 'PENDING';
-
--- AlterTable
-ALTER TABLE `user` MODIFY `role` ENUM('USER', 'ADMIN', 'DELIVERY') NOT NULL DEFAULT 'USER';
-
--- AddForeignKey
-ALTER TABLE `order` ADD CONSTRAINT `order_deliveryPersonId_fkey` FOREIGN KEY (`deliveryPersonId`) REFERENCES `user`(`id`) ON DELETE SET NULL ON UPDATE CASCADE;

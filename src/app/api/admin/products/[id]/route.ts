@@ -67,19 +67,15 @@ export async function PATCH(
       );
     }
 
-    // Se não houver imagem fornecida, mantém a atual
-    // Se houver imagem fornecida, usa a nova
-    let imageUrl = '';
-    if (image && typeof image === 'string' && image.trim()) {
-      imageUrl = image.trim();
-    } else {
-      // Se não houver imagem fornecida, mantém a atual
-      const currentProduct = await prisma.product.findUnique({ 
-        where: { id: params.id }, 
-        select: { image: true } 
-      });
-      imageUrl = currentProduct?.image || '/image.jpg';
+    // Validar se a imagem foi fornecida (base64 ou URL)
+    if (!image || typeof image !== 'string' || !image.trim()) {
+      return NextResponse.json(
+        { error: "Imagem obrigatória", message: "Por favor, selecione uma imagem" },
+        { status: 400 }
+      );
     }
+
+    const imageData = image.trim();
 
     const product = await prisma.product.update({
       where: {
@@ -88,9 +84,9 @@ export async function PATCH(
       data: {
         name: name.trim(),
         description: description.trim(),
-        price: parseFloat(price),
-        stock: parseInt(stock),
-        image: imageUrl, // Caminho da imagem (nova ou atual)
+        price: typeof price === 'number' ? price : parseFloat(price),
+        stock: typeof stock === 'number' ? stock : parseInt(stock),
+        image: imageData,
         categoryId,
       },
       include: {

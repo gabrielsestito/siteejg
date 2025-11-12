@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import { Navigation } from "@/components/Navigation";
+import { ProductImageWithFallback } from "@/components/ProductImageWithFallback";
 import { Trash2, ShoppingBag, ArrowLeft } from "lucide-react";
 
 interface DeliveryZone {
@@ -36,13 +37,18 @@ export default function CartPage() {
   const [checkoutData, setCheckoutData] = useState({
     name: "",
     phone: "",
+    cep: "",
     address: "",
     number: "",
     complement: "",
     neighborhood: "",
+    city: "",
+    state: "",
     zoneId: "",
     paymentMethod: "PIX",
   });
+  const [isLoadingCep, setIsLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState("");
 
   useEffect(() => {
     if (session?.user?.name) {
@@ -132,6 +138,57 @@ export default function CartPage() {
     BOLETO: "Boleto",
   };
 
+  async function handleCepChange(event: ChangeEvent<HTMLInputElement>) {
+    const cep = event.target.value.replace(/\D/g, ""); // Remove caracteres não numéricos
+    
+    // Formata CEP (00000-000)
+    const formattedCep = cep.replace(/(\d{5})(\d{3})/, "$1-$2");
+    setCheckoutData((prev) => ({ ...prev, cep: formattedCep }));
+    setCepError("");
+
+    // Busca CEP quando tiver 8 dígitos
+    if (cep.length === 8) {
+      setIsLoadingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+        if (!response.ok) throw new Error("Erro ao buscar CEP");
+        
+        const data = await response.json();
+        
+        if (data.erro) {
+          setCepError("CEP não encontrado");
+          setIsLoadingCep(false);
+          return;
+        }
+
+        // Preencher campos automaticamente
+        setCheckoutData((prev) => ({
+          ...prev,
+          address: data.logradouro || "",
+          neighborhood: data.bairro || "",
+          city: data.localidade || "",
+          state: data.uf || "",
+        }));
+
+        // Tentar encontrar zona de entrega pela cidade
+        const matchingZone = deliveryZones.find(
+          (zone) => zone.city.toLowerCase() === data.localidade?.toLowerCase()
+        );
+        if (matchingZone) {
+          setCheckoutData((prev) => ({ ...prev, zoneId: matchingZone.id }));
+        }
+
+        toast.success("Endereço encontrado!");
+      } catch (error) {
+        console.error("Erro ao buscar CEP:", error);
+        setCepError("Erro ao buscar CEP. Tente novamente.");
+        toast.error("Erro ao buscar CEP");
+      } finally {
+        setIsLoadingCep(false);
+      }
+    }
+  }
+
   function handleInputChange(event: ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = event.target;
     setCheckoutData((prev) => ({ ...prev, [name]: value }));
@@ -148,18 +205,28 @@ export default function CartPage() {
       return false;
     }
 
-    if (!checkoutData.address.trim() || !checkoutData.number.trim()) {
-      toast.error("Informe o endereço completo");
+    if (!checkoutData.cep.trim() || checkoutData.cep.replace(/\D/g, "").length !== 8) {
+      toast.error("Informe um CEP válido");
+      return false;
+    }
+
+    if (!checkoutData.address.trim()) {
+      toast.error("CEP não encontrado ou inválido. Verifique o CEP informado.");
+      return false;
+    }
+
+    if (!checkoutData.number.trim()) {
+      toast.error("Informe o número do endereço");
       return false;
     }
 
     if (!checkoutData.neighborhood.trim()) {
-      toast.error("Informe o bairro");
+      toast.error("Bairro não encontrado. Verifique o CEP informado.");
       return false;
     }
 
     if (!checkoutData.zoneId) {
-      toast.error("Selecione a cidade de entrega");
+      toast.error("Cidade não encontrada nas zonas de entrega. Verifique o CEP ou selecione a cidade manualmente.");
       return false;
     }
 
@@ -196,6 +263,8 @@ export default function CartPage() {
           deliveryNumber: checkoutData.number,
           deliveryComplement: checkoutData.complement || undefined,
           deliveryNeighborhood: checkoutData.neighborhood,
+          deliveryCity: checkoutData.city,
+          deliveryState: checkoutData.state,
           deliveryZoneId: checkoutData.zoneId,
           paymentMethod: checkoutData.paymentMethod,
         }),
@@ -304,18 +373,11 @@ export default function CartPage() {
                   className="bg-white rounded-2xl shadow-lg p-6 transition-all hover:shadow-xl"
                 >
                   <div className="flex items-center gap-6">
-                    <img
+                    <ProductImageWithFallback
                       src={item.product.image}
                       alt={item.product.name}
                       className="w-24 h-24 object-cover rounded-xl"
                       loading="lazy"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        // Se a imagem falhar, tenta usar a imagem padrão
-                        if (!target.src.includes('/image.jpg')) {
-                          target.src = '/image.jpg';
-                        }
-                      }}
                     />
                     <div className="flex-grow">
                       <h3 className="text-lg font-semibold text-gray-800">
@@ -345,7 +407,9 @@ export default function CartPage() {
                 <h2 className="text-xl font-bold mb-6 text-gray-800">Dados para Entrega</h2>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Nome Completo</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Nome Completo <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       name="name"
@@ -353,11 +417,14 @@ export default function CartPage() {
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="Nome do responsável pela entrega"
+                      required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Telefone</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Telefone <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="tel"
                       name="phone"
@@ -365,24 +432,60 @@ export default function CartPage() {
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                       placeholder="(16) 99999-9999"
+                      required
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Endereço</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      CEP <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        name="cep"
+                        value={checkoutData.cep}
+                        onChange={handleCepChange}
+                        maxLength={9}
+                        className={`w-full px-4 py-2 border-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 ${
+                          cepError ? "border-red-500" : "border-gray-200"
+                        }`}
+                        placeholder="00000-000"
+                        required
+                      />
+                      {isLoadingCep && (
+                        <div className="absolute right-3 top-2.5">
+                          <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-green-500"></div>
+                        </div>
+                      )}
+                    </div>
+                    {cepError && (
+                      <p className="text-sm text-red-500">{cepError}</p>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      Digite o CEP para buscar o endereço automaticamente
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Endereço <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       name="address"
                       value={checkoutData.address}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="Rua, avenida..."
+                      readOnly
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl bg-gray-50 cursor-not-allowed"
+                      placeholder="Será preenchido automaticamente pelo CEP"
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <label className="block text-sm font-medium text-gray-700">Número</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Número <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         name="number"
@@ -390,6 +493,7 @@ export default function CartPage() {
                         onChange={handleInputChange}
                         className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
                         placeholder="123"
+                        required
                       />
                     </div>
                     <div className="space-y-2">
@@ -406,33 +510,76 @@ export default function CartPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Bairro</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Bairro <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       name="neighborhood"
                       value={checkoutData.neighborhood}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                      placeholder="Bairro"
+                      readOnly
+                      className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl bg-gray-50 cursor-not-allowed"
+                      placeholder="Será preenchido automaticamente pelo CEP"
                     />
                   </div>
 
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Cidade <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="city"
+                        value={checkoutData.city}
+                        readOnly
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl bg-gray-50 cursor-not-allowed"
+                        placeholder="Será preenchido automaticamente pelo CEP"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Estado <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        name="state"
+                        value={checkoutData.state}
+                        readOnly
+                        className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl bg-gray-50 cursor-not-allowed"
+                        placeholder="Será preenchido automaticamente pelo CEP"
+                      />
+                    </div>
+                  </div>
+
                   <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Cidade</label>
+                    <label className="block text-sm font-medium text-gray-700">
+                      Zona de Entrega <span className="text-red-500">*</span>
+                    </label>
                     <select
                       name="zoneId"
                       value={checkoutData.zoneId}
                       onChange={handleInputChange}
                       className="w-full px-4 py-2 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white"
                       disabled={isZonesLoading}
+                      required
                     >
-                      <option value="">Selecione uma cidade</option>
+                      <option value="">
+                        {checkoutData.city
+                          ? `Selecione a zona de entrega para ${checkoutData.city}`
+                          : "Selecione uma cidade"}
+                      </option>
                       {deliveryZones.map((zone) => (
                         <option key={zone.id} value={zone.id}>
                           {zone.city} - R$ {zone.deliveryFee.toFixed(2)}
                         </option>
                       ))}
                     </select>
+                    {checkoutData.city && !checkoutData.zoneId && (
+                      <p className="text-xs text-amber-600">
+                        Se a cidade não aparecer na lista, selecione a zona de entrega mais próxima
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

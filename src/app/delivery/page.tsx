@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { toast } from "react-hot-toast";
 import { Navigation } from "@/components/Navigation";
+import { ProductImageWithFallback } from "@/components/ProductImageWithFallback";
 import {
   MapPin,
   Phone,
@@ -16,6 +17,7 @@ import {
   User,
   ArrowUp,
   ArrowDown,
+  FileText,
 } from "lucide-react";
 
 interface Order {
@@ -31,6 +33,7 @@ interface Order {
   deliveryState?: string | null;
   total: number;
   createdAt: string;
+  notes?: string | null;
   items: Array<{
     id: string;
     quantity: number;
@@ -399,18 +402,11 @@ export default function DeliveryPage() {
                                         className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200"
                                       >
                                         <div className="flex items-center gap-3 flex-1">
-                                          <img
+                                          <ProductImageWithFallback
                                             src={item.product.image}
                                             alt={item.product.name}
                                             className="w-12 h-12 object-cover rounded-lg"
                                             loading="lazy"
-                                            onError={(e) => {
-                                              const target = e.target as HTMLImageElement;
-                                              // Se a imagem falhar, tenta usar a imagem padrão
-                                              if (!target.src.includes('/image.jpg')) {
-                                                target.src = '/image.jpg';
-                                              }
-                                            }}
                                           />
                                           <div className="flex-1">
                                             <p className="font-medium text-gray-900 text-sm">
@@ -439,6 +435,18 @@ export default function DeliveryPage() {
                                     </span>
                                   </div>
                                 </div>
+                                {/* Observação do Pedido */}
+                                {order.notes && order.notes.trim() !== '' && (
+                                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <div className="flex items-start gap-2">
+                                      <FileText className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                                      <div className="flex-1">
+                                        <p className="text-sm font-semibold text-amber-800 mb-1">Observação do Pedido:</p>
+                                        <p className="text-sm text-amber-900 whitespace-pre-wrap">{order.notes}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -564,18 +572,11 @@ export default function DeliveryPage() {
                                         className="flex items-center justify-between bg-white rounded-lg p-3 border border-gray-200"
                                       >
                                         <div className="flex items-center gap-3 flex-1">
-                                          <img
+                                          <ProductImageWithFallback
                                             src={item.product.image}
                                             alt={item.product.name}
                                             className="w-12 h-12 object-cover rounded-lg"
                                             loading="lazy"
-                                            onError={(e) => {
-                                              const target = e.target as HTMLImageElement;
-                                              // Se a imagem falhar, tenta usar a imagem padrão
-                                              if (!target.src.includes('/image.jpg')) {
-                                                target.src = '/image.jpg';
-                                              }
-                                            }}
                                           />
                                           <div className="flex-1">
                                             <p className="font-medium text-gray-900 text-sm">
@@ -604,6 +605,18 @@ export default function DeliveryPage() {
                                     </span>
                                   </div>
                                 </div>
+                                {/* Observação do Pedido */}
+                                {order.notes && order.notes.trim() !== '' && (
+                                  <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4">
+                                    <div className="flex items-start gap-2">
+                                      <FileText className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                                      <div className="flex-1">
+                                        <p className="text-sm font-semibold text-amber-800 mb-1">Observação do Pedido:</p>
+                                        <p className="text-sm text-amber-900 whitespace-pre-wrap">{order.notes}</p>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -667,6 +680,14 @@ export default function DeliveryPage() {
                       <p className="text-xs text-gray-500 mb-2">
                         {order.deliveryCity}
                       </p>
+                      {order.notes && order.notes.trim() !== '' && (
+                        <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs">
+                          <div className="flex items-start gap-1">
+                            <FileText className="w-3 h-3 text-amber-600 mt-0.5 flex-shrink-0" />
+                            <p className="text-amber-900 line-clamp-2">{order.notes}</p>
+                          </div>
+                        </div>
+                      )}
                       <p className="text-sm font-semibold text-green-600">
                         R$ {order.total.toFixed(2)}
                       </p>
